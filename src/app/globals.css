@@ -1,7 +1,20 @@
 @import "tailwindcss";
 
+html,
 body {
   margin: 0;
   padding: 0;
   overflow: hidden;
+  width: 100%;
+  height: 100%;
+  /* 移动端视口高度修复 */
+  height: -webkit-fill-available;
+}
+
+/* 移动端安全区域适配 */
+@supports (height: 100dvh) {
+  html,
+  body {
+    height: 100dvh;
+  }
 }

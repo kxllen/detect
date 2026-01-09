@@ -355,7 +355,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="relative w-screen h-screen bg-black overflow-hidden">
+    <div className="relative w-screen h-screen bg-black overflow-hidden" style={{ height: '100dvh', minHeight: '-webkit-fill-available' }}>
       {/* 视频和画布容器 */}
       <div className="relative w-full h-full">
         <video
@@ -372,10 +372,16 @@ export default function Home() {
       </div>
 
       {/* 控制面板 */}
-      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 backdrop-blur-sm p-4 border-t border-white border-opacity-10">
+      <div 
+        className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 backdrop-blur-sm p-3 sm:p-4 border-t border-white border-opacity-10"
+        style={{ 
+          paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+          paddingTop: '0.75rem'
+        }}
+      >
         {/* 状态信息 */}
-        <div className="flex flex-wrap justify-between items-center gap-3 mb-4 text-white">
-          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+        <div className="flex flex-wrap justify-between items-center gap-2 sm:gap-3 mb-3 sm:mb-4 text-white">
+          <div className="flex flex-wrap gap-x-3 sm:gap-x-4 gap-y-1 sm:gap-y-2 text-xs sm:text-sm">
             <div className="flex items-center gap-2">
               <span className="text-gray-400">FPS:</span>
               <span className="font-semibold">{fps}</span>
@@ -399,20 +405,20 @@ export default function Home() {
 
         {/* 错误信息 */}
         {error && (
-          <div className="mb-4 p-3 bg-red-500 bg-opacity-90 text-white text-sm rounded-lg border border-red-400 border-opacity-50">
+          <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-red-500 bg-opacity-90 text-white text-xs sm:text-sm rounded-lg border border-red-400 border-opacity-50">
             {error}
           </div>
         )}
 
         {/* 控制按钮 */}
-        <div className="flex gap-3">
+        <div className="flex gap-2 sm:gap-3">
           <button
             onClick={startDetection}
             disabled={isDetecting || !model}
-            className={`flex-1 py-3 px-6 rounded-lg font-semibold text-white transition-all duration-200 ${
+            className={`flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-semibold text-sm sm:text-base text-white transition-all duration-200 touch-manipulation ${
               isDetecting || !model
                 ? "bg-gray-500 bg-opacity-50 cursor-not-allowed opacity-50"
-                : "bg-green-500 hover:bg-green-600 active:bg-green-700 hover:scale-105 active:scale-95 shadow-lg"
+                : "bg-green-500 hover:bg-green-600 active:bg-green-700 active:scale-95 shadow-lg"
             }`}
           >
             开始检测
@@ -420,10 +426,10 @@ export default function Home() {
           <button
             onClick={stopDetection}
             disabled={!isDetecting}
-            className={`flex-1 py-3 px-6 rounded-lg font-semibold text-white transition-all duration-200 ${
+            className={`flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-semibold text-sm sm:text-base text-white transition-all duration-200 touch-manipulation ${
               !isDetecting
                 ? "bg-gray-500 bg-opacity-50 cursor-not-allowed opacity-50"
-                : "bg-red-500 hover:bg-red-600 active:bg-red-700 hover:scale-105 active:scale-95 shadow-lg"
+                : "bg-red-500 hover:bg-red-600 active:bg-red-700 active:scale-95 shadow-lg"
             }`}
           >
             停止检测
