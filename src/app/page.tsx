@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
-import "@tensorflow/tfjs";
+import * as tf from "@tensorflow/tfjs";
 
 interface Detection {
   bbox: [number, number, number, number];
@@ -103,20 +103,109 @@ export default function Home() {
   const [fps, setFps] = useState(0);
   const [latency, setLatency] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [backendInfo, setBackendInfo] = useState<{
+    backend: string;
+    isHardwareAccelerated: boolean;
+    details: string;
+  } | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const frameCountRef = useRef<number>(0);
   const fpsTimeRef = useRef<number>(Date.now());
 
+  // 检测后端信息
+  const detectBackend = () => {
+    try {
+      const backend = tf.getBackend();
+      console.log("[后端] 当前后端:", backend);
+      
+      let isHardwareAccelerated = false;
+      let details = "";
+
+      // 检查后端类型
+      if (backend === "webgl") {
+        isHardwareAccelerated = true;
+        const gl = (tf.backend() as any).getGPGPUContext()?.gl;
+        if (gl) {
+          const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+          const vendor = debugInfo
+            ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL)
+            : "未知";
+          const renderer = debugInfo
+            ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+            : "未知";
+          details = `GPU: ${renderer} (${vendor})`;
+          console.log("[后端] WebGL GPU信息:", { vendor, renderer });
+        } else {
+          details = "WebGL (GPU加速)";
+        }
+      } else if (backend === "webgpu") {
+        isHardwareAccelerated = true;
+        details = "WebGPU (GPU加速)";
+      } else if (backend === "wasm") {
+        isHardwareAccelerated = false;
+        details = "WebAssembly (CPU执行)";
+      } else if (backend === "cpu") {
+        isHardwareAccelerated = false;
+        details = "CPU (纯CPU执行)";
+      } else {
+        details = backend || "未知";
+      }
+
+      // 检查是否支持WebGPU
+      const webgpuSupported = typeof navigator !== "undefined" && "gpu" in navigator;
+      console.log("[后端] WebGPU支持:", webgpuSupported);
+
+      // 检查WebGL信息
+      const canvas = document.createElement("canvas");
+      const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+      if (gl) {
+        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+        if (debugInfo) {
+          const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+          const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+          console.log("[后端] 系统GPU信息:", { vendor, renderer });
+        }
+      }
+
+      const info = {
+        backend,
+        isHardwareAccelerated,
+        details,
+      };
+
+      setBackendInfo(info);
+      console.log("[后端] 后端信息:", info);
+
+      // 关于NPU的说明
+      console.log("[后端] 注意: TensorFlow.js在浏览器中主要通过WebGL/WebGPU使用GPU加速。");
+      console.log("[后端] 移动设备的NPU通常不会直接暴露给Web API，但GPU加速可以提供类似的性能提升。");
+      console.log("[后端] 如果使用WebGL后端，说明正在使用硬件加速（可能是GPU或NPU）。");
+
+      return info;
+    } catch (err) {
+      console.error("[后端] 检测后端信息时出错:", err);
+      return null;
+    }
+  };
+
   // 加载模型
   useEffect(() => {
     const loadModel = async () => {
       console.log("[模型] 开始加载模型...");
+      
+      // 先检测后端
+      detectBackend();
+      
       try {
         const loadedModel = await cocoSsd.load();
         console.log("[模型] 模型加载成功", loadedModel);
         setModel(loadedModel);
         console.log("[模型] 模型状态已更新");
+        
+        // 模型加载后再次确认后端信息
+        const finalBackend = tf.getBackend();
+        console.log("[模型] 模型加载后的后端:", finalBackend);
       } catch (err) {
         const errorMsg = "模型加载失败: " + (err as Error).message;
         console.error("[模型] 模型加载错误:", err);
@@ -400,8 +489,50 @@ export default function Home() {
                 {model ? "就绪" : "加载中..."}
               </span>
             </div>
+            {backendInfo && (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">后端:</span>
+                <span
+                  className={`font-semibold ${
+                    backendInfo.isHardwareAccelerated
+                      ? "text-green-400"
+                      : "text-yellow-400"
+                  }`}
+                  title={backendInfo.details}
+                >
+                  {backendInfo.backend}
+                  {backendInfo.isHardwareAccelerated && " ⚡"}
+                </span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* 后端详细信息 */}
+        {backendInfo && (
+          <div className="mb-2 sm:mb-3 p-2 bg-black bg-opacity-50 rounded text-xs text-gray-300">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-gray-400">硬件加速:</span>
+              <span
+                className={`font-semibold ${
+                  backendInfo.isHardwareAccelerated
+                    ? "text-green-400"
+                    : "text-yellow-400"
+                }`}
+              >
+                {backendInfo.isHardwareAccelerated ? "是" : "否"}
+              </span>
+            </div>
+            <div className="text-gray-400 text-xs">
+              {backendInfo.details}
+            </div>
+            {backendInfo.isHardwareAccelerated && (
+              <div className="text-gray-400 text-xs mt-1">
+                注意: 在移动设备上，WebGL/WebGPU 可能使用 GPU 或 NPU 进行加速
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 错误信息 */}
         {error && (
