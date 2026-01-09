@@ -113,6 +113,76 @@ export default function Home() {
   const frameCountRef = useRef<number>(0);
   const fpsTimeRef = useRef<number>(Date.now());
 
+  // 设置后端优先级（硬件加速优先）
+  const setupBackend = async (): Promise<string | null> => {
+    console.log("[后端] 开始设置后端，优先使用硬件加速...");
+    
+    // 检查 WebGPU 支持
+    const webgpuSupported = typeof navigator !== "undefined" && "gpu" in navigator;
+    console.log("[后端] WebGPU 浏览器支持:", webgpuSupported);
+    
+    // 检查 WebGL 支持
+    const canvas = document.createElement("canvas");
+    const webglSupported = !!(canvas.getContext("webgl2") || canvas.getContext("webgl"));
+    console.log("[后端] WebGL 浏览器支持:", webglSupported);
+    
+    // 后端优先级：WebGPU > WebGL > WASM > CPU
+    const backendPriority = ["webgpu", "webgl", "wasm", "cpu"];
+    
+    for (const backend of backendPriority) {
+      try {
+        // 快速检查浏览器支持（优化：提前跳过不支持的后端）
+        if (backend === "webgpu" && !webgpuSupported) {
+          console.log(`[后端] 跳过 ${backend}（浏览器不支持 WebGPU）`);
+          continue;
+        }
+        
+        if (backend === "webgl" && !webglSupported) {
+          console.log(`[后端] 跳过 ${backend}（浏览器不支持 WebGL）`);
+          continue;
+        }
+        
+        console.log(`[后端] 尝试设置后端为: ${backend}`);
+        
+        // 尝试设置后端
+        const backendAvailable = await tf.setBackend(backend);
+        
+        if (backendAvailable) {
+          // 等待后端初始化
+          await tf.ready();
+          const currentBackend = tf.getBackend();
+          
+          if (currentBackend === backend) {
+            const isHardware = backend === "webgpu" || backend === "webgl";
+            console.log(`[后端] ✓ 成功设置后端为: ${backend}`);
+            if (isHardware) {
+              console.log(`[后端] ✓ 硬件加速已启用`);
+            }
+            return backend;
+          } else {
+            console.log(`[后端] ✗ 设置失败，实际后端为: ${currentBackend}`);
+            // 如果设置失败，尝试重置并继续下一个
+            try {
+              await tf.removeBackend(backend);
+            } catch (e) {
+              // 忽略错误
+            }
+          }
+        } else {
+          console.log(`[后端] ✗ 后端 ${backend} 不可用`);
+        }
+      } catch (err) {
+        console.warn(`[后端] ✗ 设置后端 ${backend} 时出错:`, err);
+        // 继续尝试下一个后端
+      }
+    }
+    
+    // 如果所有后端都失败，使用默认后端
+    const defaultBackend = tf.getBackend();
+    console.warn(`[后端] 所有后端设置失败，使用默认后端: ${defaultBackend}`);
+    return defaultBackend;
+  };
+
   // 检测后端信息
   const detectBackend = () => {
     try {
@@ -194,18 +264,29 @@ export default function Home() {
     const loadModel = async () => {
       console.log("[模型] 开始加载模型...");
       
-      // 先检测后端
-      detectBackend();
-      
       try {
+        // 第一步：设置后端（硬件加速优先）
+        const selectedBackend = await setupBackend();
+        if (selectedBackend) {
+          console.log(`[模型] 已选择后端: ${selectedBackend}`);
+        }
+        
+        // 第二步：检测并显示后端信息
+        detectBackend();
+        
+        // 第三步：加载模型
+        console.log("[模型] 开始加载 COCO-SSD 模型...");
         const loadedModel = await cocoSsd.load();
         console.log("[模型] 模型加载成功", loadedModel);
         setModel(loadedModel);
         console.log("[模型] 模型状态已更新");
         
-        // 模型加载后再次确认后端信息
+        // 第四步：模型加载后再次确认后端信息
         const finalBackend = tf.getBackend();
         console.log("[模型] 模型加载后的后端:", finalBackend);
+        
+        // 更新后端信息显示
+        detectBackend();
       } catch (err) {
         const errorMsg = "模型加载失败: " + (err as Error).message;
         console.error("[模型] 模型加载错误:", err);
