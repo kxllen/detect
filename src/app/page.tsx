@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import * as tf from "@tensorflow/tfjs";
 
 interface Detection {
@@ -10,96 +9,15 @@ interface Detection {
   score: number;
 }
 
-// COCO-SSD 类别中文映射
-const classLabels: { [key: string]: string } = {
-  person: "人",
-  bicycle: "自行车",
-  car: "汽车",
-  motorcycle: "摩托车",
-  airplane: "飞机",
-  bus: "公交车",
-  train: "火车",
-  truck: "卡车",
-  boat: "船",
-  traffic_light: "交通灯",
-  fire_hydrant: "消防栓",
-  stop_sign: "停止标志",
-  parking_meter: "停车计时器",
-  bench: "长椅",
-  bird: "鸟",
-  cat: "猫",
-  dog: "狗",
-  horse: "马",
-  sheep: "羊",
-  cow: "牛",
-  elephant: "大象",
-  bear: "熊",
-  zebra: "斑马",
-  giraffe: "长颈鹿",
-  backpack: "背包",
-  umbrella: "雨伞",
-  handbag: "手提包",
-  tie: "领带",
-  suitcase: "行李箱",
-  frisbee: "飞盘",
-  skis: "滑雪板",
-  snowboard: "滑雪板",
-  sports_ball: "运动球",
-  kite: "风筝",
-  baseball_bat: "棒球棒",
-  baseball_glove: "棒球手套",
-  skateboard: "滑板",
-  surfboard: "冲浪板",
-  tennis_racket: "网球拍",
-  bottle: "瓶子",
-  wine_glass: "酒杯",
-  cup: "杯子",
-  fork: "叉子",
-  knife: "刀",
-  spoon: "勺子",
-  bowl: "碗",
-  banana: "香蕉",
-  apple: "苹果",
-  sandwich: "三明治",
-  orange: "橙子",
-  broccoli: "西兰花",
-  carrot: "胡萝卜",
-  hot_dog: "热狗",
-  pizza: "披萨",
-  donut: "甜甜圈",
-  cake: "蛋糕",
-  chair: "椅子",
-  couch: "沙发",
-  potted_plant: "盆栽",
-  bed: "床",
-  dining_table: "餐桌",
-  toilet: "马桶",
-  tv: "电视",
-  laptop: "笔记本电脑",
-  mouse: "鼠标",
-  remote: "遥控器",
-  keyboard: "键盘",
-  cell_phone: "手机",
-  microwave: "微波炉",
-  oven: "烤箱",
-  toaster: "烤面包机",
-  sink: "水槽",
-  refrigerator: "冰箱",
-  book: "书",
-  clock: "时钟",
-  vase: "花瓶",
-  scissors: "剪刀",
-  teddy_bear: "泰迪熊",
-  hair_drier: "吹风机",
-  toothbrush: "牙刷",
-};
+// YOLOv8 OIV7 类别映射
+const CLASSES = ["Accordion", "Adhesive tape", "Aircraft", "Airplane", "Alarm clock", "Alpaca", "Ambulance", "Animal", "Ant", "Antelope", "Apple", "Armadillo", "Artichoke", "Auto part", "Axe", "Backpack", "Bagel", "Baked goods", "Balance beam", "Ball", "Balloon", "Banana", "Band-aid", "Banjo", "Barge", "Barrel", "Baseball bat", "Baseball glove", "Bat (Animal)", "Bathroom accessory", "Bathroom cabinet", "Bathtub", "Beaker", "Bear", "Bed", "Bee", "Beehive", "Beer", "Beetle", "Bell pepper", "Belt", "Bench", "Bicycle", "Bicycle helmet", "Bicycle wheel", "Bidet", "Billboard", "Billiard table", "Binoculars", "Bird", "Blender", "Blue jay", "Boat", "Bomb", "Book", "Bookcase", "Boot", "Bottle", "Bottle opener", "Bow and arrow", "Bowl", "Bowling equipment", "Box", "Boy", "Brassiere", "Bread", "Briefcase", "Broccoli", "Bronze sculpture", "Brown bear", "Building", "Bull", "Burrito", "Bus", "Bust", "Butterfly", "Cabbage", "Cabinetry", "Cake", "Cake stand", "Calculator", "Camel", "Camera", "Can opener", "Canary", "Candle", "Candy", "Cannon", "Canoe", "Cantaloupe", "Car", "Carnivore", "Carrot", "Cart", "Cassette deck", "Castle", "Cat", "Cat furniture", "Caterpillar", "Cattle", "Ceiling fan", "Cello", "Centipede", "Chainsaw", "Chair", "Cheese", "Cheetah", "Chest of drawers", "Chicken", "Chime", "Chisel", "Chopsticks", "Christmas tree", "Clock", "Closet", "Clothing", "Coat", "Cocktail", "Cocktail shaker", "Coconut", "Coffee", "Coffee cup", "Coffee table", "Coffeemaker", "Coin", "Common fig", "Common sunflower", "Computer keyboard", "Computer monitor", "Computer mouse", "Container", "Convenience store", "Cookie", "Cooking spray", "Corded phone", "Cosmetics", "Couch", "Countertop", "Cowboy hat", "Crab", "Cream", "Cricket ball", "Crocodile", "Croissant", "Crown", "Crutch", "Cucumber", "Cupboard", "Curtain", "Cutting board", "Dagger", "Dairy Product", "Deer", "Desk", "Dessert", "Diaper", "Dice", "Digital clock", "Dinosaur", "Dishwasher", "Dog", "Dog bed", "Doll", "Dolphin", "Door", "Door handle", "Doughnut", "Dragonfly", "Drawer", "Dress", "Drill (Tool)", "Drink", "Drinking straw", "Drum", "Duck", "Dumbbell", "Eagle", "Earrings", "Egg (Food)", "Elephant", "Envelope", "Eraser", "Face powder", "Facial tissue holder", "Falcon", "Fashion accessory", "Fast food", "Fax", "Fedora", "Filing cabinet", "Fire hydrant", "Fireplace", "Fish", "Flag", "Flashlight", "Flower", "Flowerpot", "Flute", "Flying disc", "Food", "Food processor", "Football", "Football helmet", "Footwear", "Fork", "Fountain", "Fox", "French fries", "French horn", "Frog", "Fruit", "Frying pan", "Furniture", "Garden Asparagus", "Gas stove", "Giraffe", "Girl", "Glasses", "Glove", "Goat", "Goggles", "Goldfish", "Golf ball", "Golf cart", "Gondola", "Goose", "Grape", "Grapefruit", "Grinder", "Guacamole", "Guitar", "Hair dryer", "Hair spray", "Hamburger", "Hammer", "Hamster", "Hand dryer", "Handbag", "Handgun", "Harbor seal", "Harmonica", "Harp", "Harpsichord", "Hat", "Headphones", "Heater", "Hedgehog", "Helicopter", "Helmet", "High heels", "Hiking equipment", "Hippopotamus", "Home appliance", "Honeycomb", "Horizontal bar", "Horse", "Hot dog", "House", "Houseplant", "Human arm", "Human beard", "Human body", "Human ear", "Human eye", "Human face", "Human foot", "Human hair", "Human hand", "Human head", "Human leg", "Human mouth", "Human nose", "Humidifier", "Ice cream", "Indoor rower", "Infant bed", "Insect", "Invertebrate", "Ipod", "Isopod", "Jacket", "Jacuzzi", "Jaguar (Animal)", "Jeans", "Jellyfish", "Jet ski", "Jug", "Juice", "Kangaroo", "Kettle", "Kitchen & dining room table", "Kitchen appliance", "Kitchen knife", "Kitchen utensil", "Kitchenware", "Kite", "Knife", "Koala", "Ladder", "Ladle", "Ladybug", "Lamp", "Land vehicle", "Lantern", "Laptop", "Lavender (Plant)", "Lemon", "Leopard", "Light bulb", "Light switch", "Lighthouse", "Lily", "Limousine", "Lion", "Lipstick", "Lizard", "Lobster", "Loveseat", "Luggage and bags", "Lynx", "Magpie", "Mammal", "Man", "Mango", "Maple", "Maracas", "Marine invertebrates", "Marine mammal", "Measuring cup", "Mechanical fan", "Medical equipment", "Microphone", "Microwave oven", "Milk", "Miniskirt", "Mirror", "Missile", "Mixer", "Mixing bowl", "Mobile phone", "Monkey", "Moths and butterflies", "Motorcycle", "Mouse", "Muffin", "Mug", "Mule", "Mushroom", "Musical instrument", "Musical keyboard", "Nail (Construction)", "Necklace", "Nightstand", "Oboe", "Office building", "Office supplies", "Orange", "Organ (Musical Instrument)", "Ostrich", "Otter", "Oven", "Owl", "Oyster", "Paddle", "Palm tree", "Pancake", "Panda", "Paper cutter", "Paper towel", "Parachute", "Parking meter", "Parrot", "Pasta", "Pastry", "Peach", "Pear", "Pen", "Pencil case", "Pencil sharpener", "Penguin", "Perfume", "Person", "Personal care", "Personal flotation device", "Piano", "Picnic basket", "Picture frame", "Pig", "Pillow", "Pineapple", "Pitcher (Container)", "Pizza", "Pizza cutter", "Plant", "Plastic bag", "Plate", "Platter", "Plumbing fixture", "Polar bear", "Pomegranate", "Popcorn", "Porch", "Porcupine", "Poster", "Potato", "Power plugs and sockets", "Pressure cooker", "Pretzel", "Printer", "Pumpkin", "Punching bag", "Rabbit", "Raccoon", "Racket", "Radish", "Ratchet (Device)", "Raven", "Rays and skates", "Red panda", "Refrigerator", "Remote control", "Reptile", "Rhinoceros", "Rifle", "Ring binder", "Rocket", "Roller skates", "Rose", "Rugby ball", "Ruler", "Salad", "Salt and pepper shakers", "Sandal", "Sandwich", "Saucer", "Saxophone", "Scale", "Scarf", "Scissors", "Scoreboard", "Scorpion", "Screwdriver", "Sculpture", "Sea lion", "Sea turtle", "Seafood", "Seahorse", "Seat belt", "Segway", "Serving tray", "Sewing machine", "Shark", "Sheep", "Shelf", "Shellfish", "Shirt", "Shorts", "Shotgun", "Shower", "Shrimp", "Sink", "Skateboard", "Ski", "Skirt", "Skull", "Skunk", "Skyscraper", "Slow cooker", "Snack", "Snail", "Snake", "Snowboard", "Snowman", "Snowmobile", "Snowplow", "Soap dispenser", "Sock", "Sofa bed", "Sombrero", "Sparrow", "Spatula", "Spice rack", "Spider", "Spoon", "Sports equipment", "Sports uniform", "Squash (Plant)", "Squid", "Squirrel", "Stairs", "Stapler", "Starfish", "Stationary bicycle", "Stethoscope", "Stool", "Stop sign", "Strawberry", "Street light", "Stretcher", "Studio couch", "Submarine", "Submarine sandwich", "Suit", "Suitcase", "Sun hat", "Sunglasses", "Surfboard", "Sushi", "Swan", "Swim cap", "Swimming pool", "Swimwear", "Sword", "Syringe", "Table", "Table tennis racket", "Tablet computer", "Tableware", "Taco", "Tank", "Tap", "Tart", "Taxi", "Tea", "Teapot", "Teddy bear", "Telephone", "Television", "Tennis ball", "Tennis racket", "Tent", "Tiara", "Tick", "Tie", "Tiger", "Tin can", "Tire", "Toaster", "Toilet", "Toilet paper", "Tomato", "Tool", "Toothbrush", "Torch", "Tortoise", "Towel", "Tower", "Toy", "Traffic light", "Traffic sign", "Train", "Training bench", "Treadmill", "Tree", "Tree house", "Tripod", "Trombone", "Trousers", "Truck", "Trumpet", "Turkey", "Turtle", "Umbrella", "Unicycle", "Van", "Vase", "Vegetable", "Vehicle", "Vehicle registration plate", "Violin", "Volleyball (Ball)", "Waffle", "Waffle iron", "Wall clock", "Wardrobe", "Washing machine", "Waste container", "Watch", "Watercraft", "Watermelon", "Weapon", "Whale", "Wheel", "Wheelchair", "Whisk", "Whiteboard", "Willow", "Window", "Window blind", "Wine", "Wine glass", "Wine rack", "Winter melon", "Wok", "Woman", "Wood-burning stove", "Woodpecker", "Worm", "Wrench", "Zebra", "Zucchini"];
 
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDetecting, setIsDetecting] = useState(false);
   const isDetectingRef = useRef<boolean>(false); // 使用 ref 来同步跟踪检测状态
-  const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
+  const [model, setModel] = useState<tf.GraphModel | null>(null);
   const [fps, setFps] = useState(0);
   const [latency, setLatency] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -275,9 +193,16 @@ export default function Home() {
         detectBackend();
         
         // 第三步：加载模型
-        console.log("[模型] 开始加载 COCO-SSD 模型...");
-        const loadedModel = await cocoSsd.load();
-        console.log("[模型] 模型加载成功", loadedModel);
+        console.log("[模型] 开始加载 YOLOv8 模型...");
+        const modelUrl = "/yolov8n-oiv7_web_model/model.json";
+        
+        // 使用 GraphModel 加载（模型格式为 graph-model）
+        const loadedModel = await tf.loadGraphModel(modelUrl);
+        console.log("[模型] 模型加载成功 (GraphModel)", loadedModel);
+        console.log("[模型] 模型输入:", loadedModel.inputs);
+        console.log("[模型] 模型输出:", loadedModel.outputs);
+        console.log("[模型] 模型输入名称:", loadedModel.inputs.map((inp: any) => inp.name));
+        console.log("[模型] 模型输出名称:", loadedModel.outputs.map((out: any) => out.name));
         setModel(loadedModel);
         console.log("[模型] 模型状态已更新");
         
@@ -326,6 +251,254 @@ export default function Home() {
     }
   };
 
+  // YOLOv8 后处理函数
+  const processYOLOv8Output = async (
+    output: tf.Tensor,
+    originalWidth: number,
+    originalHeight: number,
+    inputSize: number
+  ): Promise<Detection[]> => {
+    const data = await output.data();
+    const shape = output.shape;
+    
+    console.log(`[后处理] 输出形状: [${shape.join(', ')}]`);
+    
+    // YOLOv8 输出格式可能是：
+    // 1. [1, num_detections, num_classes + 4] - 标准格式
+    // 2. [1, 4, num_detections] 和 [1, num_classes, num_detections] - 分离格式
+    // 3. [1, num_detections, num_classes + 4] - 合并格式
+    
+    let detections: Detection[] = [];
+    const scaleX = originalWidth / inputSize;
+    const scaleY = originalHeight / inputSize;
+    
+    // 阈值
+    const CONF_THRESHOLD = 0.25;
+    const IOU_THRESHOLD = 0.45;
+    const numClasses = CLASSES.length;
+    
+    // 根据输出形状判断格式
+    if (shape.length === 3 && shape[0] === 1) {
+      // YOLOv8 输出格式可能是：
+      // 1. [1, features, num_detections] - 转置格式 (605, 8400)
+      // 2. [1, num_detections, features] - 标准格式
+      
+      const dim1 = shape[1];
+      const dim2 = shape[2];
+      
+      console.log(`[后处理] 维度1: ${dim1}, 维度2: ${dim2}`);
+      
+      // 判断格式：如果 dim1 接近 numClasses + 4，则是 [1, features, num_detections]
+      // 如果 dim2 接近 numClasses + 4，则是 [1, num_detections, features]
+      let numDetections: number;
+      let features: number;
+      let isTransposed: boolean;
+      
+      if (dim1 === numClasses + 4 || (dim1 > 100 && dim2 > 1000)) {
+        // 格式: [1, features(605), num_detections(8400)]
+        isTransposed = true;
+        features = dim1;
+        numDetections = dim2;
+        console.log(`[后处理] 检测到转置格式: [1, ${features}, ${numDetections}]`);
+      } else if (dim2 === numClasses + 4 || (dim2 > 100 && dim1 > 1000)) {
+        // 格式: [1, num_detections, features]
+        isTransposed = false;
+        numDetections = dim1;
+        features = dim2;
+        console.log(`[后处理] 检测到标准格式: [1, ${numDetections}, ${features}]`);
+      } else {
+        console.warn(`[后处理] 无法确定格式，尝试标准格式`);
+        isTransposed = false;
+        numDetections = dim1;
+        features = dim2;
+      }
+      
+      if (features === numClasses + 4) {
+        // 解析每个检测结果
+        for (let i = 0; i < numDetections; i++) {
+          let offset: number;
+          
+          if (isTransposed) {
+            // 转置格式: data[feature_index * numDetections + detection_index]
+            // bbox 在 data[0 * numDetections + i], data[1 * numDetections + i], ...
+            const x = data[0 * numDetections + i];
+            const y = data[1 * numDetections + i];
+            const w = data[2 * numDetections + i];
+            const h = data[3 * numDetections + i];
+            
+            // 调试：打印前几个检测框的原始值
+            if (i < 3) {
+              console.log(`[后处理] 检测框 ${i} 原始值: x=${x.toFixed(4)}, y=${y.toFixed(4)}, w=${w.toFixed(4)}, h=${h.toFixed(4)}`);
+            }
+            
+            // YOLOv8 输出格式判断：
+            // 如果值在 0-1 之间，是归一化的中心点格式
+            // 如果值在 0-640 之间，是像素坐标的中心点格式
+            let cx: number, cy: number, width: number, height: number;
+            
+            if (x < 1 && y < 1 && w < 1 && h < 1) {
+              // 归一化格式: (cx, cy, w, h) 都在 0-1 之间
+              cx = x * inputSize;
+              cy = y * inputSize;
+              width = w * inputSize;
+              height = h * inputSize;
+            } else if (x < inputSize && y < inputSize) {
+              // 已经是像素坐标的中心点格式
+              cx = x;
+              cy = y;
+              width = w;
+              height = h;
+            } else {
+              // 可能是其他格式，尝试直接使用
+              cx = x;
+              cy = y;
+              width = w;
+              height = h;
+            }
+            
+            // 转换为左上角坐标 (相对于输入尺寸 640x640)
+            const x1 = cx - width / 2;
+            const y1 = cy - height / 2;
+            
+            // 缩放到原始视频尺寸
+            const scaledX1 = x1 * scaleX;
+            const scaledY1 = y1 * scaleY;
+            const scaledWidth = width * scaleX;
+            const scaledHeight = height * scaleY;
+            
+            // 获取类别概率
+            let maxScore = 0;
+            let maxClassIndex = 0;
+            
+            for (let j = 0; j < numClasses; j++) {
+              const score = data[(4 + j) * numDetections + i];
+              if (score > maxScore) {
+                maxScore = score;
+                maxClassIndex = j;
+              }
+            }
+            
+            const confidence = maxScore;
+            
+            if (confidence >= CONF_THRESHOLD && scaledWidth > 0 && scaledHeight > 0 && 
+                scaledX1 >= -scaledWidth && scaledY1 >= -scaledHeight &&
+                scaledX1 < originalWidth && scaledY1 < originalHeight) {
+              detections.push({
+                bbox: [scaledX1, scaledY1, scaledWidth, scaledHeight],
+                class: CLASSES[maxClassIndex],
+                score: confidence,
+              });
+              
+              if (detections.length <= 3) {
+                console.log(`[后处理] 添加检测结果 ${detections.length}: ${CLASSES[maxClassIndex]} (${(confidence * 100).toFixed(1)}%) - bbox: [${scaledX1.toFixed(0)}, ${scaledY1.toFixed(0)}, ${scaledWidth.toFixed(0)}, ${scaledHeight.toFixed(0)}]`);
+              }
+            }
+          } else {
+            // 标准格式: [1, num_detections, features]
+            offset = i * features;
+            
+            // 获取 bbox
+            const x = data[offset];
+            const y = data[offset + 1];
+            const w = data[offset + 2];
+            const h = data[offset + 3];
+            
+            // YOLOv8 输出通常是中心点格式 (cx, cy, w, h)，归一化到输入尺寸
+            const cx = x * inputSize;
+            const cy = y * inputSize;
+            const width = w * inputSize;
+            const height = h * inputSize;
+            
+            // 转换为左上角坐标
+            const x1 = (cx - width / 2) * scaleX;
+            const y1 = (cy - height / 2) * scaleY;
+            const scaledWidth = width * scaleX;
+            const scaledHeight = height * scaleY;
+            
+            // 获取类别概率
+            let maxScore = 0;
+            let maxClassIndex = 0;
+            
+            for (let j = 0; j < numClasses; j++) {
+              const score = data[offset + 4 + j];
+              if (score > maxScore) {
+                maxScore = score;
+                maxClassIndex = j;
+              }
+            }
+            
+            const confidence = maxScore;
+            
+            if (confidence >= CONF_THRESHOLD && scaledWidth > 0 && scaledHeight > 0) {
+              detections.push({
+                bbox: [x1, y1, scaledWidth, scaledHeight],
+                class: CLASSES[maxClassIndex],
+                score: confidence,
+              });
+            }
+          }
+        }
+      } else {
+        console.warn(`[后处理] 特征数不匹配: features=${features}, 期望 ${numClasses + 4}`);
+      }
+    } else {
+      console.warn(`[后处理] 不支持的输出形状: [${shape.join(', ')}]`);
+    }
+    
+    console.log(`[后处理] 解析到 ${detections.length} 个检测结果`);
+    
+    // 应用 NMS (非极大值抑制)
+    const nmsDetections = applyNMS(detections, IOU_THRESHOLD);
+    console.log(`[后处理] NMS 后剩余 ${nmsDetections.length} 个检测结果`);
+    
+    return nmsDetections;
+  };
+
+  // NMS (非极大值抑制) 实现
+  const applyNMS = (detections: Detection[], iouThreshold: number): Detection[] => {
+    // 按置信度排序
+    const sorted = [...detections].sort((a, b) => b.score - a.score);
+    const selected: Detection[] = [];
+    
+    while (sorted.length > 0) {
+      const best = sorted.shift()!;
+      selected.push(best);
+      
+      // 移除与当前最佳检测框 IoU 过高的检测
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        const iou = calculateIOU(best.bbox, sorted[i].bbox);
+        if (iou > iouThreshold) {
+          sorted.splice(i, 1);
+        }
+      }
+    }
+    
+    return selected;
+  };
+
+  // 计算 IoU (交并比)
+  const calculateIOU = (box1: [number, number, number, number], box2: [number, number, number, number]): number => {
+    const [x1_1, y1_1, w1, h1] = box1;
+    const [x1_2, y1_2, w2, h2] = box2;
+    
+    const x2_1 = x1_1 + w1;
+    const y2_1 = y1_1 + h1;
+    const x2_2 = x1_2 + w2;
+    const y2_2 = y1_2 + h2;
+    
+    const xi1 = Math.max(x1_1, x1_2);
+    const yi1 = Math.max(y1_1, y1_2);
+    const xi2 = Math.min(x2_1, x2_2);
+    const yi2 = Math.min(y2_1, y2_2);
+    
+    const interArea = Math.max(0, xi2 - xi1) * Math.max(0, yi2 - yi1);
+    const box1Area = w1 * h1;
+    const box2Area = w2 * h2;
+    const unionArea = box1Area + box2Area - interArea;
+    
+    return unionArea > 0 ? interArea / unionArea : 0;
+  };
+
   // 绘制检测结果
   const drawDetections = (
     ctx: CanvasRenderingContext2D,
@@ -335,22 +508,50 @@ export default function Home() {
     canvasWidth: number,
     canvasHeight: number
   ) => {
+    // 先清空画布
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    
+    if (detections.length === 0) {
+      console.log(`[绘制] 没有检测结果需要绘制`);
+      return;
+    }
 
+    // 注意：bbox 已经是相对于原始视频尺寸的坐标，不需要再次缩放
+    // 但 canvas 可能和视频尺寸不同，需要缩放
     const scaleX = canvasWidth / videoWidth;
     const scaleY = canvasHeight / videoHeight;
 
-    const validDetections = detections.filter(d => d.score >= 0.6);
-    console.log(`[绘制] 检测到 ${detections.length} 个对象，有效对象 ${validDetections.length} 个`);
+    // 降低绘制阈值，显示更多检测结果
+    const DRAW_THRESHOLD = 0.25; // 与后处理阈值一致
+    const validDetections = detections.filter(d => d.score >= DRAW_THRESHOLD);
+    console.log(`[绘制] 检测到 ${detections.length} 个对象，有效对象 ${validDetections.length} 个 (阈值: ${DRAW_THRESHOLD})`);
+
+    if (validDetections.length === 0) {
+      console.log(`[绘制] 所有检测结果都被过滤掉了`);
+      return;
+    }
 
     validDetections.forEach((detection, index) => {
       const [x, y, width, height] = detection.bbox;
+      
+      // bbox 已经是相对于原始视频尺寸的坐标，需要缩放到 canvas 尺寸
       const scaledX = x * scaleX;
       const scaledY = y * scaleY;
       const scaledWidth = width * scaleX;
       const scaledHeight = height * scaleY;
 
-      console.log(`[绘制] 对象 ${index + 1}: ${detection.class} (${(detection.score * 100).toFixed(1)}%) - 位置: [${x.toFixed(0)}, ${y.toFixed(0)}, ${width.toFixed(0)}, ${height.toFixed(0)}]`);
+      // 检查坐标是否有效
+      if (isNaN(scaledX) || isNaN(scaledY) || isNaN(scaledWidth) || isNaN(scaledHeight)) {
+        console.warn(`[绘制] 对象 ${index + 1} 坐标无效: [${scaledX}, ${scaledY}, ${scaledWidth}, ${scaledHeight}]`);
+        return;
+      }
+
+      if (scaledWidth <= 0 || scaledHeight <= 0) {
+        console.warn(`[绘制] 对象 ${index + 1} 尺寸无效: [${scaledWidth}, ${scaledHeight}]`);
+        return;
+      }
+
+      console.log(`[绘制] 对象 ${index + 1}: ${detection.class} (${(detection.score * 100).toFixed(1)}%) - 位置: [${scaledX.toFixed(0)}, ${scaledY.toFixed(0)}, ${scaledWidth.toFixed(0)}, ${scaledHeight.toFixed(0)}]`);
 
       // 绘制绿色边框
       ctx.strokeStyle = "#00ff00";
@@ -358,7 +559,7 @@ export default function Home() {
       ctx.strokeRect(scaledX, scaledY, scaledWidth, scaledHeight);
 
       // 绘制标签背景
-      const label = classLabels[detection.class] || detection.class;
+      const label = detection.class;
       const labelText = `${label} ${(detection.score * 100).toFixed(1)}%`;
       ctx.font = "16px Arial";
       ctx.fillStyle = "#00ff00";
@@ -378,6 +579,8 @@ export default function Home() {
       ctx.fillStyle = "#000000";
       ctx.fillText(labelText, scaledX + 4, scaledY - 6);
     });
+    
+    console.log(`[绘制] 绘制完成，已绘制 ${validDetections.length} 个检测结果`);
   };
 
   // 执行检测
@@ -429,30 +632,68 @@ export default function Home() {
       return;
     }
 
-    // 设置画布尺寸
+    // 只在尺寸变化时设置画布尺寸（避免清空画布）
+    if (canvas.width !== videoWidth || canvas.height !== videoHeight) {
     canvas.width = videoWidth;
     canvas.height = videoHeight;
-    console.log(`[检测] 画布尺寸设置为: ${canvas.width}x${canvas.height}`);
+      console.log(`[检测] 画布尺寸设置为: ${canvas.width}x${canvas.height}`);
+    }
 
     // 执行检测
     console.log("[检测] 开始执行模型检测...");
-    const predictions = await model.detect(video);
-    console.log(`[检测] 检测完成，检测到 ${predictions.length} 个对象`);
+    
+    // YOLOv8 预处理：调整图像大小并归一化
+    const INPUT_SIZE = 640; // YOLOv8 标准输入尺寸
+    const imageTensor = tf.browser.fromPixels(video);
+    const resized = tf.image.resizeBilinear(imageTensor, [INPUT_SIZE, INPUT_SIZE]);
+    const normalized = resized.div(255.0);
+    const batched = normalized.expandDims(0);
+    
+    // 执行模型推理
+    let predictions: tf.Tensor;
+    if ('execute' in model) {
+      // GraphModel 使用 execute 方法（同步，更快）
+      const result = (model as tf.GraphModel).execute(batched) as tf.Tensor | tf.Tensor[];
+      if (Array.isArray(result)) {
+        predictions = result[0]; // 取第一个输出
+        // 清理其他输出
+        result.slice(1).forEach(t => t.dispose());
+      } else {
+        predictions = result;
+      }
+    } else {
+      // LayersModel 使用 predict 方法
+      predictions = await (model as any).predict(batched) as tf.Tensor;
+    }
+    
+    console.log("[检测] 模型输出形状:", predictions.shape);
+    
+    // 清理中间张量
+    imageTensor.dispose();
+    resized.dispose();
+    normalized.dispose();
+    batched.dispose();
+    
+    // 后处理：解码检测结果
+    const detections = await processYOLOv8Output(
+      predictions,
+      videoWidth,
+      videoHeight,
+      INPUT_SIZE
+    );
+    
+    predictions.dispose();
+    
+    console.log(`[检测] 检测完成，检测到 ${detections.length} 个对象`);
 
     const endTime = performance.now();
     const detectionLatency = endTime - startTime;
     console.log(`[检测] 检测延迟: ${detectionLatency.toFixed(2)}ms`);
     setLatency(detectionLatency);
 
-    // 转换检测结果格式
-    const detections: Detection[] = predictions.map((pred) => ({
-      bbox: pred.bbox as [number, number, number, number],
-      class: pred.class,
-      score: pred.score,
-    }));
-
-    // 绘制检测结果
+    // 绘制检测结果（在检测完成后立即绘制）
     drawDetections(ctx, detections, videoWidth, videoHeight, canvas.width, canvas.height);
+    console.log(`[绘制] 绘制完成，已绘制 ${detections.length} 个检测结果`);
 
     // 计算 FPS
     frameCountRef.current++;
@@ -465,8 +706,9 @@ export default function Home() {
       fpsTimeRef.current = now;
     }
 
-    // 使用 ref 来检查检测状态
+    // 使用 ref 来检查检测状态，继续下一帧检测
     if (isDetectingRef.current) {
+      // 使用 requestAnimationFrame 继续检测循环
       animationFrameRef.current = requestAnimationFrame(detect);
     } else {
       console.log("[检测] 检测循环结束，不再继续");
