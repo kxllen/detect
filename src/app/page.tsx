@@ -238,9 +238,43 @@ export default function Home() {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         console.log("[摄像头] 设置视频源");
+        
+        // 等待视频元数据加载完成，确保尺寸可用
+        await new Promise<void>((resolve) => {
+          const video = videoRef.current!;
+          const onLoadedMetadata = () => {
+            const width = video.videoWidth;
+            const height = video.videoHeight;
+            console.log("[摄像头] 视频元数据已加载，尺寸:", width, "x", height);
+            video.removeEventListener("loadedmetadata", onLoadedMetadata);
+            resolve();
+          };
+          
+          // 如果元数据已经加载，立即解析
+          if (video.readyState >= video.HAVE_METADATA && video.videoWidth > 0) {
+            onLoadedMetadata();
+          } else {
+            video.addEventListener("loadedmetadata", onLoadedMetadata);
+            // 设置超时，避免无限等待
+            setTimeout(() => {
+              if (video.readyState >= video.HAVE_METADATA) {
+                onLoadedMetadata();
+              } else {
+                console.warn("[摄像头] 等待元数据超时，继续执行");
+                video.removeEventListener("loadedmetadata", onLoadedMetadata);
+                resolve();
+              }
+            }, 2000);
+          }
+        });
+        
         await videoRef.current.play();
         console.log("[摄像头] 视频开始播放");
-        console.log("[摄像头] 视频尺寸:", videoRef.current.videoWidth, "x", videoRef.current.videoHeight);
+        
+        // 再次确认视频尺寸
+        const finalWidth = videoRef.current.videoWidth;
+        const finalHeight = videoRef.current.videoHeight;
+        console.log("[摄像头] 视频尺寸确认:", finalWidth, "x", finalHeight);
       } else {
         console.error("[摄像头] videoRef.current 为 null");
       }
@@ -510,7 +544,7 @@ export default function Home() {
   ) => {
     // 先清空画布
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    
+
     if (detections.length === 0) {
       console.log(`[绘制] 没有检测结果需要绘制`);
       return;
@@ -620,17 +654,31 @@ export default function Home() {
       return;
     }
 
-    const startTime = performance.now();
+    // 获取视频尺寸，确保尺寸有效且稳定
+    let videoWidth = video.videoWidth;
+    let videoHeight = video.videoHeight;
 
-    // 获取视频尺寸
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
-
-    if (videoWidth === 0 || videoHeight === 0) {
-      console.warn(`[检测] 视频尺寸无效: ${videoWidth}x${videoHeight}`);
+    // 检查视频尺寸是否有效
+    if (videoWidth === 0 || videoHeight === 0 || isNaN(videoWidth) || isNaN(videoHeight)) {
+      console.warn(`[检测] 视频尺寸无效或未就绪: ${videoWidth}x${videoHeight}, readyState: ${video.readyState}`);
+      // 等待视频元数据加载
+      if (video.readyState < video.HAVE_METADATA) {
+        console.log(`[检测] 等待视频元数据加载...`);
+      }
       animationFrameRef.current = requestAnimationFrame(detect);
       return;
     }
+
+    // 验证视频尺寸是否合理（至少应该大于 0）
+    if (videoWidth < 10 || videoHeight < 10) {
+      console.warn(`[检测] 视频尺寸异常小: ${videoWidth}x${videoHeight}，等待稳定...`);
+      animationFrameRef.current = requestAnimationFrame(detect);
+      return;
+    }
+
+    const startTime = performance.now();
+
+    console.log(`[检测] 视频尺寸: ${videoWidth}x${videoHeight}`);
 
     // 只在尺寸变化时设置画布尺寸（避免清空画布）
     if (canvas.width !== videoWidth || canvas.height !== videoHeight) {
